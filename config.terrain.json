@@ -17,9 +17,9 @@
           }
         },
         "instantiateMsg": {
-          "name":"NFT Collection Name",
-          "symbol":"NFTSYMBOL",
-          "minter":"terraxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          "name":"NOVA NFT",
+          "symbol":"NOVA",
+          "minter":"terra1d6gas5s7j9jdlgslrmsswdxqfq64xnh6tklscz"
         }
       }
     }
