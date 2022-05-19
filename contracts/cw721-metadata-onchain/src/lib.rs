@@ -1,8 +1,15 @@
+use cosmwasm_std::Empty;
+use cosmwasm_std::StdResult;
+use cosmwasm_std::{to_binary, Uint128};
+pub use cw721_base::{ContractError, InstantiateMsg, MintMsg, MinterResponse, QueryMsg};
+use cw_storage_plus::U32Key;
+use cw_storage_plus::{Item, Map};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::Empty;
-pub use cw721_base::{ContractError, InstantiateMsg, MintMsg, MinterResponse, QueryMsg};
+//key->NFT number, value->collateral in uusd
+pub const COLLATERALS: Map<U32Key, Uint128> = Map::new("collaterals");
+pub const BOND_COUNT: Item<u32> = Item::new("bond_counter");
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, Default)]
 pub struct Trait {
@@ -47,6 +54,8 @@ pub mod entry {
         info: MessageInfo,
         msg: InstantiateMsg,
     ) -> StdResult<Response> {
+        //initialize the bond count
+        BOND_COUNT.save(deps.storage, &0);
         Cw721MetadataContract::default().instantiate(deps, env, info, msg)
     }
 
@@ -57,13 +66,53 @@ pub mod entry {
         info: MessageInfo,
         msg: ExecuteMsg,
     ) -> Result<Response, ContractError> {
-        Cw721MetadataContract::default().execute(deps, env, info, msg)
+        match msg {
+            ExecuteMsg::Mint(msg) => {
+                let uusd_received: Uint128 = info
+                    .funds
+                    .iter()
+                    .find(|c| c.denom == String::from("uusd"))
+                    .map(|c| Uint128::from(c.amount))
+                    .unwrap_or_else(Uint128::zero);
+
+                let mut count = 0;
+                BOND_COUNT.update(deps.storage, |mut counter| -> Result<_, ContractError> {
+                    counter = counter + 1;
+                    count = counter;
+                    Ok(counter)
+                })?;
+                COLLATERALS.save(deps.storage, U32Key::from(count), &uusd_received);
+                Cw721MetadataContract::default().execute(
+                    deps,
+                    env,
+                    info,
+                    cw721_base::ExecuteMsg::Mint(msg),
+                )
+            }
+            _ => Cw721MetadataContract::default().execute(deps, env, info, msg),
+        }
     }
 
     #[entry_point]
     pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
-        Cw721MetadataContract::default().query(deps, env, msg)
+        match msg {
+            QueryMsg::OwnerOf {
+                token_id,
+                include_expired,
+            } => {
+                let amount = COLLATERALS
+                    .load(deps.storage, U32Key::from(token_id.parse::<u32>().unwrap()))?;
+                to_binary(&ok(amount)?)
+            }
+            _ => Cw721MetadataContract::default().query(deps, env, msg),
+        }
     }
+}
+
+fn ok(amount: Uint128) -> StdResult<CollateralAmountResponse> {
+    Ok(CollateralAmountResponse {
+        collateral_amount: amount,
+    })
 }
 
 #[cfg(test)]
@@ -110,4 +159,11 @@ mod tests {
         assert_eq!(res.token_uri, mint_msg.token_uri);
         assert_eq!(res.extension, mint_msg.extension);
     }
+}
+
+//-------------------------------------------------
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct CollateralAmountResponse {
+    pub collateral_amount: Uint128,
 }
