@@ -1,25 +1,9 @@
 {
   "localterra": {
-    "caja": {
-      "codeId": "2",
+    "cw721-metadata-onchain": {
+      "codeId": "3",
       "contractAddresses": {
-        "default": "terra10pyejy66429refv3g35g2t7am0was7ya7kz2a4"
-      }
-    }
-  },
-  "testnet": {
-    "caja": {
-      "codeId": "69909",
-      "contractAddresses": {
-        "default": "terra153he0f5ykcsh00rclgat5zjjzzcljmjz2e7nw5"
-      }
-    }
-  },
-  "mainnet": {
-    "caja": {
-      "codeId": "5482",
-      "contractAddresses": {
-        "default": "terra1pn8zdxjwszz53k7h2jjj62jdzudffvrc0tuymf"
+        "default": "terra1sh36qn08g4cqg685cfzmyxqv2952q6r8gpczrt"
       }
     }
   }

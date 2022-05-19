@@ -12,6 +12,13 @@ import {
 } from "@mui/material";
 import {LoadingButton} from "@mui/lab";
 import moment from 'moment';
+import { Player, Controls } from '@lottiefiles/react-lottie-player';
+
+
+import * as execute from './contract/execute'
+import * as query from './contract/query'
+
+import {hash} from './utils/helpers';
 
 import NavBar from './components/NavBar';
 // import {ConnectSample} from './components/ConnectSample';
@@ -23,14 +30,13 @@ import NavBar from './components/NavBar';
 // import {TxSample} from './components/TxSample';
 // import WalletHoldingsWidget from "./components/WalletHoldingsWidget";
 import BankContext from './components/Bank';
-import {useConnectedWallet, useLCDClient} from '@terra-money/wallet-provider';
+import {useConnectedWallet, useLCDClient, useWallet} from '@terra-money/wallet-provider';
 import {ConnectedWallet} from "@terra-money/use-wallet";
 import {Coins} from "@terra-money/terra.js";
 
 import {ThemeProvider, createTheme} from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import './App.css';
-
 
 const fonts = [
     'Open Sans',
@@ -82,6 +88,16 @@ function App() {
     const [monthlyPayment, setMonthlyPayment] = useState(1000);
     const [numOfBonds, setNumOfBonds] = useState(50);
 
+    const [updating, setUpdating] = useState(false)
+    const [token_id, setTokenId] = useState('')
+    const [owner_address, setAddress] = useState('')
+    const [nft_name, setNFTName] = useState('')
+    const [image_url, setImageURL] = useState('')
+    const [nft_metadata, setNFTMetadata] = useState(null)
+    const [open, setOpen] = useState(true)
+    const [error, setError] = useState('')
+    const {status} = useWallet()
+
     const refreshBalance = () => {
         if (connectedWallet) {
             lcd.bank.balance(connectedWallet.walletAddress).then(([coins]) => {
@@ -113,6 +129,58 @@ function App() {
         setNumOfBonds(newValue as number);
     };
 
+    const onClickMint = async () => {
+        //https://i.scdn.co/image/ab6761610000e5eb20b1eaa29f8a64a42bca1dce
+        setNFTMetadata(null)
+        setUpdating(true)
+        setError('')
+        setOpen(false)
+
+        const token_id = await hash(name+"1");
+
+        // export const mint = async (wallet, owner_address, nft_name, image_url, payment, maturity, total_bonds) => {
+
+        console.log("token_id", token_id)
+        const response = await execute.mint(
+            connectedWallet,
+            connectedWallet?.walletAddress,
+            name,
+            'https://cdn.discordapp.com/attachments/976570844883083327/976621787167203328/fractal_fractals_pretty_272927.jpeg',
+            monthlyPayment,
+            expiration,
+            numOfBonds
+        )
+
+        if (response.code !== 0) {
+            const error_message = response.raw_log
+            console.log("ERROR", response)
+            switch (true) {
+                case error_message.indexOf('token_id already claimed') !== -1:
+                    setError('Token ID Already Claimed.')
+                    break
+                case error_message.indexOf('addr_validate errored') !== -1:
+                    setError('Owner Address Not Valid.')
+                    break
+                default:
+                    setError(`${response.raw_log}.`)
+            }
+            setOpen(true)
+            setUpdating(false)
+            return
+        }
+
+        const nft_data = await query.nft_info(
+            connectedWallet,
+            token_id
+        )
+
+        console.log(nft_data);
+
+        setNFTMetadata(nft_data)
+        setOpen(true)
+        setUpdating(false)
+    }
+
     return (
         <BankContext.Provider value={{bank, refreshBalance}}>
             <ThemeProvider theme={darkTheme}>
@@ -122,6 +190,15 @@ function App() {
 
                 <Container sx={{flexGrow: 1}} style={{marginTop: 50}}>
                     <h1>Create / Mint Bond</h1>
+
+                    <Player
+                        autoplay
+                        loop
+                        src="https://assets3.lottiefiles.com/packages/lf20_zinxs4wn.json"
+                        style={{ height: '300px', width: '300px' }}
+                    >
+                        <Controls visible={false} buttons={['play', 'repeat', 'frame', 'debug']} />
+                    </Player>
 
                     <Box>
                         <label htmlFor="name">Name
@@ -204,9 +281,9 @@ function App() {
                                         defaultValue={numOfBonds}
                                         onChange={handleNumOfBondsChange}
                                         valueLabelDisplay="on"
-                                        step={5}
+                                        step={1}
                                         marks
-                                        min={5}
+                                        min={1}
                                         max={100}
                                     />
                                 </Box>
@@ -247,7 +324,10 @@ function App() {
                     </Box>
                     <Box sx={{marginTop: 4}}>
                         <LoadingButton variant="contained" size="large"
-                                       sx={{color: "#FFF", fontSize: 24}}>Mint
+                                       sx={{color: "#FFF", fontSize: 24}}
+                                       loading={updating}
+                                       onClick={onClickMint}
+                        >Mint
                             Bond</LoadingButton>
                     </Box>
                 </Container>
