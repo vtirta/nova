@@ -1,6 +1,6 @@
 use cosmwasm_std::Empty;
 use cosmwasm_std::StdResult;
-use cosmwasm_std::{to_binary, Uint128};
+use cosmwasm_std::{to_binary, BankMsg, Coin, CosmosMsg, Uint128};
 pub use cw721_base::{ContractError, InstantiateMsg, MintMsg, MinterResponse, QueryMsg};
 use cw_storage_plus::U32Key;
 use cw_storage_plus::{Item, Map};
@@ -92,7 +92,35 @@ pub mod entry {
                     cw721_base::ExecuteMsg::Mint(msg),
                 )
             }
-            ExecuteMsg::Mint(msg) => {
+            ExecuteMsg::TransferNft {
+                recipient,
+                token_id,
+            } => {
+                let count = BOND_COUNT.load(deps.storage)?;
+
+                let money = COLLATERALS.load(deps.storage, U32Key::from(count))?;
+                let temp = Cw721MetadataContract::default().execute(
+                    deps,
+                    env,
+                    info.clone(),
+                    cw721_base::ExecuteMsg::TransferNft {
+                        recipient,
+                        token_id,
+                    },
+                );
+                Ok(temp.unwrap().add_message(CosmosMsg::Bank(BankMsg::Send {
+                    to_address: info.sender.to_string(),
+                    amount: vec![Coin {
+                        denom: "uusd".to_string(),
+                        amount: money,
+                    }],
+                })))
+            }
+            //use this to add collateral to the nth NFT where n is token_id (as String)
+            //vic set in the token_id the NFT number (if it was minted as first 1 , as third 3 and so on)
+            ExecuteMsg::Approve {
+                spender, token_id, ..
+            } => {
                 let uusd_received: Uint128 = info
                     .funds
                     .iter()
@@ -100,19 +128,22 @@ pub mod entry {
                     .map(|c| Uint128::from(c.amount))
                     .unwrap_or_else(Uint128::zero);
 
-                let mut count = 0;
-                BOND_COUNT.update(deps.storage, |mut counter| -> Result<_, ContractError> {
-                    counter = counter + 1;
-                    count = counter;
-                    Ok(counter)
-                })?;
-                COLLATERALS.save(deps.storage, U32Key::from(count), &uusd_received);
-                Cw721MetadataContract::default().execute(
-                    deps,
-                    env,
-                    info,
-                    cw721_base::ExecuteMsg::Mint(msg),
-                )
+                let bond_key = U32Key::from(token_id.parse::<u32>().unwrap());
+
+                let money = COLLATERALS.update(
+                    deps.storage,
+                    bond_key,
+                    |collateral| -> Result<_, ContractError> {
+                        match collateral {
+                            Some(mut collateral) => {
+                                collateral = collateral + uusd_received;
+                                Ok(collateral)
+                            }
+                            None => Err(ContractError::Expired {}),
+                        }
+                    },
+                )?;
+                Ok(Response::new())
             }
             _ => Cw721MetadataContract::default().execute(deps, env, info, msg),
         }
@@ -125,8 +156,9 @@ pub mod entry {
                 token_id,
                 include_expired,
             } => {
-                let amount = COLLATERALS.load(deps.storage, U32Key::from(token_id.parse::<u32>().unwrap()))?;
-                    // .load(deps.storage, U32Key::from(1u32))?;
+                let amount = COLLATERALS
+                    .load(deps.storage, U32Key::from(token_id.parse::<u32>().unwrap()))?;
+                // .load(deps.storage, U32Key::from(1u32))?;
                 // let amount : Uint128 = Uint128::from(1000000u32);
                 to_binary(&ok(amount)?)
             }
