@@ -75,12 +75,15 @@ pub mod entry {
                     .map(|c| Uint128::from(c.amount))
                     .unwrap_or_else(Uint128::zero);
 
-                let mut count = 0;
+                // let mut count = 0;
                 BOND_COUNT.update(deps.storage, |mut counter| -> Result<_, ContractError> {
                     counter = counter + 1;
-                    count = counter;
+                    // count = counter;
                     Ok(counter)
                 })?;
+
+                let count = BOND_COUNT.load(deps.storage)?;
+
                 COLLATERALS.save(deps.storage, U32Key::from(count), &uusd_received);
                 Cw721MetadataContract::default().execute(
                     deps,
@@ -122,8 +125,9 @@ pub mod entry {
                 token_id,
                 include_expired,
             } => {
-                let amount = COLLATERALS
-                    .load(deps.storage, U32Key::from(token_id.parse::<u32>().unwrap()))?;
+                let amount = COLLATERALS.load(deps.storage, U32Key::from(token_id.parse::<u32>().unwrap()))?;
+                    // .load(deps.storage, U32Key::from(1u32))?;
+                // let amount : Uint128 = Uint128::from(1000000u32);
                 to_binary(&ok(amount)?)
             }
             _ => Cw721MetadataContract::default().query(deps, env, msg),

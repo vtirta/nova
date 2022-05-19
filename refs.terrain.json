@@ -1,1 +1,10 @@
-{}
+{
+  "localterra": {
+    "cw721-metadata-onchain": {
+      "codeId": "8",
+      "contractAddresses": {
+        "default": "terra15rrl3qjafxzlzguu5x29xh29pam35uet2q86vp"
+      }
+    }
+  }
+}
