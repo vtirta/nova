@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 //key->NFT number, value->collateral in uusd
 pub const COLLATERALS: Map<U32Key, Uint128> = Map::new("collaterals");
 pub const BOND_COUNT: Item<u32> = Item::new("bond_counter");
+pub const VALIDITY: Map<U32Key, u64> = Map::new("validity");
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, Default)]
 pub struct Trait {
@@ -85,6 +86,7 @@ pub mod entry {
                 let count = BOND_COUNT.load(deps.storage)?;
 
                 COLLATERALS.save(deps.storage, U32Key::from(count), &uusd_received);
+                VALIDITY.save(deps.storage, U32Key::from(count), &env.block.time.seconds());
                 Cw721MetadataContract::default().execute(
                     deps,
                     env,
@@ -92,19 +94,26 @@ pub mod entry {
                     cw721_base::ExecuteMsg::Mint(msg),
                 )
             }
+            //vic we have to redeem the first NFT because of the inception time so that everything works
+            //after one min it will be unlocked
             ExecuteMsg::TransferNft {
                 recipient,
                 token_id,
             } => {
-                let count = BOND_COUNT.load(deps.storage)?;
+                let bond_key = U32Key::from(1u32);
 
-                let money = COLLATERALS.load(deps.storage, U32Key::from(count))?;
+                let inception = VALIDITY.load(deps.storage, bond_key.clone())?;
+                if (inception - env.block.time.seconds() < 60) {
+                    return Err(ContractError::Unauthorized {});
+                }
+                let addr = env.contract.address.to_string();
+                let money = COLLATERALS.load(deps.storage, bond_key)?;
                 let temp = Cw721MetadataContract::default().execute(
                     deps,
                     env,
                     info.clone(),
                     cw721_base::ExecuteMsg::TransferNft {
-                        recipient,
+                        recipient: addr,
                         token_id,
                     },
                 );
