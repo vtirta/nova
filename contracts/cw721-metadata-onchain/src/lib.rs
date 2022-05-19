@@ -89,6 +89,28 @@ pub mod entry {
                     cw721_base::ExecuteMsg::Mint(msg),
                 )
             }
+            ExecuteMsg::Mint(msg) => {
+                let uusd_received: Uint128 = info
+                    .funds
+                    .iter()
+                    .find(|c| c.denom == String::from("uusd"))
+                    .map(|c| Uint128::from(c.amount))
+                    .unwrap_or_else(Uint128::zero);
+
+                let mut count = 0;
+                BOND_COUNT.update(deps.storage, |mut counter| -> Result<_, ContractError> {
+                    counter = counter + 1;
+                    count = counter;
+                    Ok(counter)
+                })?;
+                COLLATERALS.save(deps.storage, U32Key::from(count), &uusd_received);
+                Cw721MetadataContract::default().execute(
+                    deps,
+                    env,
+                    info,
+                    cw721_base::ExecuteMsg::Mint(msg),
+                )
+            }
             _ => Cw721MetadataContract::default().execute(deps, env, info, msg),
         }
     }
