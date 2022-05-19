@@ -13,7 +13,8 @@ import {
 import {LoadingButton} from "@mui/lab";
 import moment from 'moment';
 import { Player, Controls } from '@lottiefiles/react-lottie-player';
-
+// import { SpotifyAuth, Scopes } from 'react-spotify-auth';
+// import 'react-spotify-auth/dist/index.css'; // if using the included styles
 
 import * as execute from './contract/execute'
 import * as query from './contract/query'
@@ -199,6 +200,12 @@ function App() {
                     >
                         <Controls visible={false} buttons={['play', 'repeat', 'frame', 'debug']} />
                     </Player>
+
+                    {/*<SpotifyAuth*/}
+                    {/*    redirectUri='http://localhost:3000/callback'*/}
+                    {/*    clientID='74c4ad26e564470588beaa20824e2d1a'*/}
+                    {/*    scopes={[Scopes.userReadPrivate, Scopes.userReadEmail]}*/}
+                    {/*/>*/}
 
                     <Box>
                         <label htmlFor="name">Name
